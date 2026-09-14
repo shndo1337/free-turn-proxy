@@ -61,10 +61,20 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         settings.ipv4Settings = ipv4
         settings.mtu = NSNumber(value: params.mtu > 0 ? params.mtu : mtu)
 
-        let dnsList = params.dns.split(separator: ",").map(String.init).filter { !$0.isEmpty }
-        if !dnsList.isEmpty {
-            settings.dnsSettings = NEDNSSettings(servers: dnsList)
+        // The Go core only speaks IPv4 - without this, iOS leaves IPv6 on the device's
+        // real interface, and IPv6-preferring destinations (Happy Eyeballs, e.g. Google)
+        // bypass the tunnel entirely instead of failing over to the tunneled IPv4 path.
+        let ipv6 = NEIPv6Settings(addresses: ["fd00:0:0:0:0:0:0:1"], networkPrefixLengths: [128])
+        ipv6.includedRoutes = [NEIPv6Route.default()]
+        settings.ipv6Settings = ipv6
+
+        var dnsList = params.dns.split(separator: ",").map(String.init).filter { !$0.isEmpty }
+        if dnsList.isEmpty {
+            dnsList = ["1.1.1.1", "8.8.8.8"]
         }
+        let dns = NEDNSSettings(servers: dnsList)
+        dns.matchDomains = [""]
+        settings.dnsSettings = dns
 
         SharedLog.write("[EXT] applying tunnel network settings...")
         setTunnelNetworkSettings(settings) { [weak self] error in
