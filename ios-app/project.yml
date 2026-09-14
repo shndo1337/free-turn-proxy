@@ -21,7 +21,7 @@ targets:
         buildPhase: none
     dependencies:
       - framework: Lib/Mobile.xcframework
-        embed: false
+        embed: true
       - target: FreeTurnTunnel
         embed: true
     info:

@@ -54,7 +54,9 @@ jobs:
         working-directory: ios-app
         run: |
           APP="build/FreeTurn.xcarchive/Products/Applications/FreeTurn.app"
-          find "$APP" -type d
+          find "$APP"
+          echo "--- Info.plist ---"
+          plutil -p "$APP/Info.plist"
           ldid -S"FreeTurn/FreeTurn.entitlements" "$APP/FreeTurn"
           ldid -S"FreeTurnTunnel/FreeTurnTunnel.entitlements" "$APP/PlugIns/FreeTurnTunnel.appex/FreeTurnTunnel"
 
