@@ -123,7 +123,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
                 continue
             }
             if ctlInfo.ctl_id == 0 {
-                ret = ioctl(fd, CTLIOCGINFO, &ctlInfo)
+                ret = ioctl(fd, FT_CTLIOCGINFO, &ctlInfo)
                 if ret != 0 {
                     continue
                 }

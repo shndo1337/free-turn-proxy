@@ -22,4 +22,7 @@ struct sockaddr_ctl {
     uint32_t sc_reserved[5];
 };
 
-#define CTLIOCGINFO _IOWR('N', 3, struct ctl_info)
+// Swift's Clang importer doesn't reliably import function-like macros with
+// shift expressions (_IOWR expands via _IOC), so materialize it as a real
+// C constant Swift can see.
+static const unsigned long FT_CTLIOCGINFO = _IOWR('N', 3, struct ctl_info);
