@@ -16,6 +16,7 @@ targets:
     platform: iOS
     sources:
       - path: FreeTurn
+      - path: Shared
       - path: Lib
         buildPhase: none
     dependencies:
@@ -40,6 +41,8 @@ targets:
       properties:
         com.apple.developer.networking.networkextension:
           - packet-tunnel-provider
+        com.apple.security.application-groups:
+          - group.com.shndo1337.freeturn
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.shndo1337.freeturn
@@ -66,6 +69,7 @@ targets:
     platform: iOS
     sources:
       - path: FreeTurnTunnel
+      - path: Shared
       - path: Lib
         buildPhase: none
     dependencies:
@@ -85,6 +89,8 @@ targets:
       properties:
         com.apple.developer.networking.networkextension:
           - packet-tunnel-provider
+        com.apple.security.application-groups:
+          - group.com.shndo1337.freeturn
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.shndo1337.freeturn.tunnel

@@ -2,6 +2,8 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var vpn = VPNController()
+    @State private var logText: String = ""
+    @State private var logTimer: Timer?
 
     @AppStorage("clientId") private var clientId: String = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
     @AppStorage("peer") private var peer: String = "45.9.2.176:56000"
@@ -41,12 +43,48 @@ struct ContentView: View {
                     if let err = vpn.lastError {
                         Text(err).font(.caption).foregroundColor(.red)
                     }
+
+                    logView
                 }
                 .padding()
             }
             .navigationTitle("FreeTurn")
+            .onAppear { startLogPolling() }
+            .onDisappear { logTimer?.invalidate() }
         }
         .navigationViewStyle(.stack)
+    }
+
+    private func startLogPolling() {
+        refreshLog()
+        logTimer?.invalidate()
+        logTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            refreshLog()
+        }
+    }
+
+    private func refreshLog() {
+        logText = SharedLog.read()
+    }
+
+    private var logView: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Extension log").font(.caption).foregroundColor(.secondary)
+                Spacer()
+                Button("Clear") { SharedLog.clear(); refreshLog() }.font(.caption)
+                Button("Refresh") { refreshLog() }.font(.caption)
+            }
+            ScrollView {
+                Text(logText.isEmpty ? "—" : logText)
+                    .font(.system(.caption2, design: .monospaced))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+            }
+            .frame(height: 300)
+            .background(Color(.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
     }
 
     private var controls: some View {

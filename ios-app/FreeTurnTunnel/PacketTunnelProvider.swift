@@ -10,21 +10,27 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     private var started = false
 
     override func startTunnel(options: [String: NSObject]?, completionHandler: @escaping (Error?) -> Void) {
+        SharedLog.clear()
+        SharedLog.write("[EXT] startTunnel called")
         let conf = (protocolConfiguration as? NETunnelProviderProtocol)?.providerConfiguration ?? [:]
         guard let configJSON = conf["configJSON"] as? String,
               let wgText = conf["wgText"] as? String,
               let mtu = conf["mtu"] as? Int else {
+            SharedLog.write("[EXT] ERROR missing provider configuration")
             completionHandler(NSError(domain: "FreeTurn", code: 1,
                 userInfo: [NSLocalizedDescriptionKey: "missing provider configuration"]))
             return
         }
+        SharedLog.write("[EXT] config loaded, mtu=\(mtu)")
 
         var paramsErr: NSError?
         guard let params = MobileParseTunnelConfig(wgText, mtu, &paramsErr) else {
+            SharedLog.write("[EXT] ERROR parse tunnel config: \(paramsErr?.localizedDescription ?? "?")")
             completionHandler(paramsErr ?? NSError(domain: "FreeTurn", code: 2,
                 userInfo: [NSLocalizedDescriptionKey: "failed to parse tunnel config"]))
             return
         }
+        SharedLog.write("[EXT] parsed tunnel params: addr=\(params.addresses) dns=\(params.dns) mtu=\(params.mtu)")
 
         let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
 
@@ -60,29 +66,37 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             settings.dnsSettings = NEDNSSettings(servers: dnsList)
         }
 
+        SharedLog.write("[EXT] applying tunnel network settings...")
         setTunnelNetworkSettings(settings) { [weak self] error in
             if let error = error {
+                SharedLog.write("[EXT] ERROR setTunnelNetworkSettings: \(error.localizedDescription)")
                 completionHandler(error)
                 return
             }
+            SharedLog.write("[EXT] network settings applied")
             guard let self = self else { return }
 
             guard let fd = self.getTunnelFileDescriptor() else {
+                SharedLog.write("[EXT] ERROR could not find tun fd")
                 completionHandler(NSError(domain: "FreeTurn", code: 4,
                     userInfo: [NSLocalizedDescriptionKey: "could not find tun file descriptor"]))
                 return
             }
+            SharedLog.write("[EXT] found tun fd=\(fd)")
 
             let sink = TunnelEventSink()
             MobileSetEventSink(sink)
             self.eventSink = sink
 
+            SharedLog.write("[EXT] calling MobileStartTunnel...")
             var startErr: NSError?
             MobileStartTunnel(configJSON, Int(fd), &startErr)
             if let startErr = startErr {
+                SharedLog.write("[EXT] ERROR MobileStartTunnel: \(startErr.localizedDescription)")
                 completionHandler(startErr)
                 return
             }
+            SharedLog.write("[EXT] MobileStartTunnel returned OK")
 
             self.started = true
             completionHandler(nil)
@@ -90,6 +104,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     }
 
     override func stopTunnel(with reason: NEProviderStopReason, completionHandler: @escaping () -> Void) {
+        SharedLog.write("[EXT] stopTunnel reason=\(reason.rawValue)")
         if started {
             MobileStop()
             started = false
@@ -146,7 +161,13 @@ private func cidrToMask(_ prefix: Int) -> String {
 /// needs to exist so the Go side has somewhere to push OnState/OnCaptcha without a nil
 /// pointer. The extension has no UI of its own to render state changes into.
 private final class TunnelEventSink: NSObject, MobileEventSinkProtocol {
-    func onState(_ state: String?, streams: Int, total: Int, errMsg: String?) {}
-    func onLog(_ level: String?, msg: String?, unixMillis: Int64) {}
-    func onCaptcha(_ url: String?) {}
+    func onState(_ state: String?, streams: Int, total: Int, errMsg: String?) {
+        SharedLog.write("[STATE] \(state ?? "?") streams=\(streams)/\(total) err=\(errMsg ?? "")")
+    }
+    func onLog(_ level: String?, msg: String?, unixMillis: Int64) {
+        SharedLog.write("[\((level ?? "log").uppercased())] \(msg ?? "")")
+    }
+    func onCaptcha(_ url: String?) {
+        SharedLog.write("[CAPTCHA] \(url ?? "(cleared)")")
+    }
 }
