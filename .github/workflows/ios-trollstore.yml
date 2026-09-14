@@ -1,0 +1,76 @@
+name: iOS unsigned IPA (TrollStore)
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      - name: go mod download
+        run: go mod download
+
+      - name: Install xcodegen, ldid, go-task, gomobile
+        run: |
+          brew install xcodegen ldid go-task
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          go install golang.org/x/mobile/cmd/gobind@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Build iOS XCFramework (gomobile bind)
+        run: task build:ios
+
+      - name: Sync framework into the app
+        run: |
+          mkdir -p ios-app/Lib
+          rm -rf ios-app/Lib/Mobile.xcframework
+          cp -R dist/Mobile.xcframework ios-app/Lib/Mobile.xcframework
+
+      - name: Generate Xcode project
+        working-directory: ios-app
+        run: xcodegen generate
+
+      - name: Archive (unsigned)
+        working-directory: ios-app
+        run: |
+          rm -rf build/FreeTurn.xcarchive
+          xcodebuild -project FreeTurn.xcodeproj -scheme FreeTurn -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/FreeTurn.xcarchive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            clean archive
+
+      - name: Ad-hoc sign with entitlements (ldid, for TrollStore)
+        working-directory: ios-app
+        run: |
+          APP="build/FreeTurn.xcarchive/Products/Applications/FreeTurn.app"
+          find "$APP" -type d
+          ldid -S"FreeTurn/FreeTurn.entitlements" "$APP/FreeTurn"
+          ldid -S"FreeTurnTunnel/FreeTurnTunnel.entitlements" "$APP/PlugIns/FreeTurnTunnel.appex/FreeTurnTunnel"
+
+      - name: Package IPA
+        working-directory: ios-app
+        run: |
+          APP="build/FreeTurn.xcarchive/Products/Applications/FreeTurn.app"
+          rm -rf build/Payload
+          mkdir -p build/Payload
+          cp -R "$APP" build/Payload/
+          cd build
+          zip -qry FreeTurn-unsigned.ipa Payload
+          ls -lh FreeTurn-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FreeTurn-unsigned-ipa
+          path: ios-app/build/FreeTurn-unsigned.ipa
+          retention-days: 14
