@@ -76,7 +76,7 @@ final class VPNController: ObservableObject {
             peer: peer,
             clientId: clientId,
             provider: "vk",
-            turn: TurnCfg(n: 6, transport: "tcp"),
+            turn: TurnCfg(n: 12, transport: "tcp"),
             vk: VKCfg(links: [vkLink], streamsPerCred: 12, manualCaptcha: false, platform: "mobile"),
             obf: ObfCfg(profile: "rtpopus3", key: obfKey),
             dns: DNSCfg(mode: "plain", servers: ["8.8.8.8"]),
