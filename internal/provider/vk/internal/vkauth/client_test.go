@@ -21,6 +21,9 @@ func newTestClient(t *testing.T, fake tokenChainFn, opts ...func(*Client)) *Clie
 		Credentials:     []VKCredentials{{ClientID: "a"}, {ClientID: "b"}, {ClientID: "c"}},
 	})
 	c.tokenChain = fake
+	// These tests exercise the legacy credential loop; the captcha-free path is
+	// covered separately (token_vkcalls_test.go) and would otherwise hit the network.
+	c.tryCaptchaFree = false
 	c.minFetchIntervalFn = func() time.Duration { return 0 }
 	for _, o := range opts {
 		o(c)

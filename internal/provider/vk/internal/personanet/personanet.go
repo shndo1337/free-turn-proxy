@@ -12,6 +12,7 @@ import (
 
 	fhttp "github.com/bogdanfinn/fhttp"
 	tlsclient "github.com/bogdanfinn/tls-client"
+	"github.com/bogdanfinn/tls-client/profiles"
 	"golang.org/x/net/proxy"
 
 	"github.com/samosvalishe/free-turn-proxy/internal/netconn"
@@ -70,13 +71,24 @@ func NoFollowRedirects() Option {
 // NewClient строит tls-client с ClientHello персоны поверх dialer. jar может быть
 // nil, если куки ведёт вызывающий.
 func NewClient(profile browserprofile.Profile, dialer net.Dialer, jar tlsclient.CookieJar, extra ...Option) (tlsclient.HttpClient, error) {
+	return buildClient(profile.ClientProfile(), dialer, jar, extra...)
+}
+
+// NewSafariIOSClient строит клиент с TLS-отпечатком Safari на iOS. Нужен для
+// captcha-free пути VK Calls (api.vk.me): VK там принимает только «родной»
+// отпечаток мобильного приложения и отклоняет Chrome JA3.
+func NewSafariIOSClient(dialer net.Dialer, jar tlsclient.CookieJar, extra ...Option) (tlsclient.HttpClient, error) {
+	return buildClient(profiles.Safari_IOS_26_0, dialer, jar, extra...)
+}
+
+func buildClient(clientProfile profiles.ClientProfile, dialer net.Dialer, jar tlsclient.CookieJar, extra ...Option) (tlsclient.HttpClient, error) {
 	var o options
 	for _, apply := range extra {
 		apply(&o)
 	}
 	opts := []tlsclient.HttpClientOption{
 		tlsclient.WithTimeoutSeconds(clientTimeoutSeconds),
-		tlsclient.WithClientProfile(profile.ClientProfile()),
+		tlsclient.WithClientProfile(clientProfile),
 		tlsclient.WithProxyDialerFactory(func(_ string, timeout time.Duration, localAddr *net.TCPAddr, _ fhttp.Header, _ tlsclient.Logger) (proxy.ContextDialer, error) {
 			base := dialer
 			base.Timeout = timeout

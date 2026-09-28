@@ -57,6 +57,13 @@ type Client struct {
 	captchaAttempt     int
 	tokenChain         tokenChainFn
 	minFetchIntervalFn func() time.Duration
+
+	// tryCaptchaFree gates the default captcha-free VK Calls path
+	// (getTokenChainVKCalls) that runs before the legacy credential loop.
+	tryCaptchaFree bool
+	// vkCallsClient overrides the per-fetch Safari-iOS client (tests inject one);
+	// nil means build a real one each fetch.
+	vkCallsClient tlsclient.HttpClient
 }
 
 type tokenChainFn func(ctx context.Context, link string, streamID int, creds VKCredentials, jar tlsclient.CookieJar) (string, string, []string, error)
@@ -83,6 +90,7 @@ func New(cfg Config) *Client {
 		c.streamsFn = func() int32 { return 1 }
 	}
 	c.tokenChain = c.getTokenChain
+	c.tryCaptchaFree = true
 	c.minFetchIntervalFn = func() time.Duration {
 		return 3*time.Second + time.Duration(randx.Intn(3000))*time.Millisecond
 	}
@@ -247,6 +255,21 @@ func (c *Client) fetch(ctx context.Context, link string, streamID int) (string, 
 	}
 
 	c.captchaAttempt = 0
+
+	// Captcha-free VK Calls path (default). It uses VK Connect's own client_id
+	// on api.vk.me and is not captcha-gated; on any failure we fall through to
+	// the legacy credential loop below (which carries the PoW/manual solver).
+	if c.tryCaptchaFree {
+		user, pass, addrs, err := c.getTokenChainVKCalls(ctx, link, streamID)
+		if err == nil {
+			c.log.Debugf("[STREAM %d] [VK Auth] Success via captcha-free path", streamID)
+			return user, pass, addrs, nil
+		}
+		if ctx.Err() != nil {
+			return "", "", nil, err
+		}
+		c.log.Warnf("[STREAM %d] [VK Auth] captcha-free path failed, falling back to legacy: %v", streamID, err)
+	}
 
 	var lastErr error
 	burns := 0
