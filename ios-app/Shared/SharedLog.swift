@@ -44,4 +44,27 @@ enum SharedLog {
         guard let url = url, let data = try? Data(contentsOf: url) else { return "" }
         return String(data: data, encoding: .utf8) ?? ""
     }
+
+    private static var captchaFileURL: URL? {
+        FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: groupID)?
+            .appendingPathComponent("captcha.url")
+    }
+
+    /// Manual-captcha URL published by the extension; empty/nil means nothing to solve.
+    static var captchaURL: String? {
+        get {
+            guard let url = captchaFileURL, let data = try? Data(contentsOf: url),
+                  let s = String(data: data, encoding: .utf8), !s.isEmpty else { return nil }
+            return s
+        }
+        set {
+            guard let url = captchaFileURL else { return }
+            if let v = newValue, !v.isEmpty {
+                try? v.data(using: .utf8)?.write(to: url)
+            } else {
+                try? FileManager.default.removeItem(at: url)
+            }
+        }
+    }
 }

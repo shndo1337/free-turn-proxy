@@ -4,6 +4,8 @@ struct ContentView: View {
     @StateObject private var vpn = VPNController()
     @State private var logText: String = ""
     @State private var logTimer: Timer?
+    @State private var captchaURL: String?
+    @Environment(\.openURL) private var openURL
 
     @AppStorage("clientId") private var clientId: String = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
     @AppStorage("peer") private var peer: String = "45.9.2.176:56000"
@@ -23,6 +25,17 @@ struct ContentView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     statusHeader
+
+                    if let captcha = captchaURL, let url = URL(string: captcha) {
+                        Button {
+                            openURL(url)
+                        } label: {
+                            Label("Solve VK captcha in browser", systemImage: "safari.fill")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.orange)
+                    }
 
                     field(title: "VK Call link", placeholder: "https://vk.ru/call/join/...", text: $vkLink)
                     field(title: "Server (peer)", placeholder: "ip:port", text: $peer)
@@ -65,6 +78,7 @@ struct ContentView: View {
 
     private func refreshLog() {
         logText = SharedLog.read()
+        captchaURL = SharedLog.captchaURL
     }
 
     private var logView: some View {

@@ -11,6 +11,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
 
     override func startTunnel(options: [String: NSObject]?, completionHandler: @escaping (Error?) -> Void) {
         SharedLog.clear()
+        SharedLog.captchaURL = nil
         SharedLog.write("[EXT] startTunnel called")
         let conf = (protocolConfiguration as? NETunnelProviderProtocol)?.providerConfiguration ?? [:]
         guard let configJSON = conf["configJSON"] as? String,
@@ -179,5 +180,6 @@ private final class TunnelEventSink: NSObject, MobileEventSinkProtocol {
     }
     func onCaptcha(_ url: String?) {
         SharedLog.write("[CAPTCHA] \(url ?? "(cleared)")")
+        SharedLog.captchaURL = url
     }
 }
